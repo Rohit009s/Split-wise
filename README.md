@@ -1,7 +1,6 @@
 
 # DEPT simplifier front-end
-
-**Project Link:** [View Project](https://nextwork.ai/projects/58805374-f60d-4b21-93ac-0de18611c060)
+**Project Link** : https://split-wise-olive.vercel.app/
 
 **Author:** Neelam Rohith  
 **Email:** rohithneelam87@gmail.com
