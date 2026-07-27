@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Splitwise-style debt simplification API
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Timeout: 30
+    MemorySize: 128
+    Environment:
+      Variables:
+        GROUPS_TABLE: !Ref GroupsTable
+        EXPENSES_TABLE: !Ref ExpensesTable
+
+Resources:
+  SplitApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Content-Type
+        AllowMethods:
+          - GET
+          - POST
+  GroupsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/groups/
+      Handler: index.handler
+      Events:
+        CreateGroup:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SplitApi
+            Path: /groups
+            Method: POST
+        GetGroup:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SplitApi
+            Path: /groups/{groupId}
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref GroupsTable
+
+  ExpensesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/expenses/
+      Handler: index.handler
+      Events:
+        AddExpense:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SplitApi
+            Path: /groups/{groupId}/expenses
+            Method: POST
+        GetExpenses:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SplitApi
+            Path: /groups/{groupId}/expenses
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExpensesTable
+
+  SettleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/settle/
+      Handler: index.handler
+      Events:
+        Settle:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SplitApi
+            Path: /groups/{groupId}/settle
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExpensesTable
+
+  SettleVizFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/settle-viz/
+      Handler: index.handler
+      Events:
+        SettleViz:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref SplitApi
+            Path: /groups/{groupId}/settle/steps
+            Method: GET
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ExpensesTable
+
+  GroupsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-groups"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: groupId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: groupId
+          KeyType: HASH
+
+  ExpensesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-expenses"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: groupId
+          AttributeType: S
+        - AttributeName: expenseId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: groupId
+          KeyType: HASH
+        - AttributeName: expenseId
+          KeyType: RANGE
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${SplitApi}.execute-api.${AWS::Region}.amazonaws.com"
